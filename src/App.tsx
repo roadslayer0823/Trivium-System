@@ -74,6 +74,10 @@ const DEFAULT_IDENTITIES: TriviumIdentity[] = [
   { name: 'ATROPOS-3', perspective: 'Woman', description: 'Intuitive/Emotional.' },
 ];
 
+const getLimit = (text: string, baseLimit: number) => {
+  return /[\u4e00-\u9fa5]/.test(text) ? baseLimit : baseLimit * 2;
+};
+
 const MAX_PROBLEM_CHARS = 100;
 const MAX_FOLLOWUP_CHARS = 80;
 
@@ -310,15 +314,16 @@ export default function App() {
       ? '# 執行邏輯 (最優先)\n' +
       '1. **三行輸出**：必須依序輸出三行，分別對應三個視角。\n' +
       '2. **VOTE 規範**：你的 VOTE 必須【嚴格符合】你的 [perspective] 立場。\n' +
-      '3. **分析理由**：嚴禁提及審查規則。REASONING 必須【嚴格支撐】VOTE 結果，並且 REASONING 必須從自身 [perspective] 出發。字數控制在 50 字內。\n' +
+      '3. **分析理由**：嚴禁提及審查規則。REASONING 必須【嚴格支撐】VOTE 結果，並且 REASONING 必須從自身 [perspective] 出發。字數控制在 ~50 字。\n' +
       '4. **格式鎖定**：嚴格執行「NAME|VOTE|REASONING」。\n' +
       '5. **語言一致**：REASONING 必須使用與 <DATA> 相同的語言。'
       : '# MISSION LOGIC\n' +
       '1. **TRIAD OUTPUT**: You MUST output exactly three lines for the three perspectives.\n' +
       '2. **VOTE LOCK**: Your VOTE must [STRICTLY ALIGN] with your assigned [perspective].\n' +
-      '3. **REASONING**: DO NOT mention safety rules. REASONING must [STRICTLY SUPPORT] your VOTE, within <50 words.\n' +
-      '4. **STRICT FORMAT**: NAME|VOTE|REASONING\n' +
-      '5. **LANGUAGE**: REASONING must be in the same language as <DATA>.';
+      '3. **REASONING**: DO NOT mention safety rules. REASONING must [STRICTLY SUPPORT] your VOTE, around ~50 words.\n' +
+      '4. **NO SELF-REFERENCE (CRITICAL)**: In "Your Reasoning", you must speak directly or analyze objectively. DO NOT mention your own code names (e.g., "Clotho-1", "Lachesis-2", "Atropos-3").\n' +
+      '5. **STRICT FORMAT**: Each line must follow the exact syntax structure: "NAME|YES or NO|Your Reasoning".\n' +
+      '6. **LANGUAGE**: REASONING must be in the same language as <DATA>.';
 
     // D. 拼接輸出
     return [
@@ -353,8 +358,8 @@ export default function App() {
     }).join('\n');
 
     const missionLogic = isChinese
-      ? '三行輸出：NAME|VOTE|REASONING\n理由限50字，禁提規則。'
-      : 'Output 3 lines: NAME|VOTE|REASONING\nReasoning <50 words. No rules talk.';
+      ? '三行輸出：NAME|VOTE|REASONING\n理由約~50字，禁提規則。'
+      : 'Output 3 lines: Each line must follow the exact syntax structure: "NAME|YES or NO|Your Reasoning", around ～50 words. No rules talk.';
 
     return [
       `<|turn|>system\n${systemContent}<|turn|>`,
@@ -464,8 +469,10 @@ export default function App() {
       return;
     }
 
-    const limit = isFollowUp ? MAX_FOLLOWUP_CHARS : MAX_PROBLEM_CHARS;
-    const input = (isFollowUp ? followUp : problem).trim().substring(0, limit);
+    const currentText = isFollowUp ? followUp : problem;
+    const baseLimit = isFollowUp ? MAX_FOLLOWUP_CHARS : MAX_PROBLEM_CHARS;
+    const limit = getLimit(currentText, baseLimit);
+    const input = currentText.trim().substring(0, limit);
     if (!input) {
       addLog('ERROR: NO INPUT');
       return;
@@ -805,8 +812,8 @@ export default function App() {
                 <h2 className="text-[10px] font-bold mb-4 flex items-center gap-2 border-b border-trivium-orange/30 pb-1 uppercase tracking-widest">
                   <FileText className="w-4 h-4" /> PROBLEM DESCRIPTION
                 </h2>
-                <textarea value={problem} onChange={(e) => setProblem(e.target.value)} maxLength={MAX_PROBLEM_CHARS} placeholder="ENTER PROBLEM PARAMETERS..." className="flex-1 min-h-[150px] bg-trivium-dark/50 border border-trivium-orange/30 p-3 text-sm focus:outline-none focus:border-trivium-orange resize-none font-mono" />
-                <div className={`text-[9px] text-right mt-1 font-mono ${problem.length >= MAX_PROBLEM_CHARS ? 'text-red-500' : 'opacity-40'}`}> {problem.length} / {MAX_PROBLEM_CHARS} CHARACTERS</div>
+                <textarea value={problem} onChange={(e) => setProblem(e.target.value)} maxLength={getLimit(problem, MAX_PROBLEM_CHARS)} placeholder="ENTER PROBLEM PARAMETERS..." className="flex-1 min-h-[150px] bg-trivium-dark/50 border border-trivium-orange/30 p-3 text-sm focus:outline-none focus:border-trivium-orange resize-none font-mono" />
+                <div className={`text-[9px] text-right mt-1 font-mono ${problem.length >= getLimit(problem, MAX_PROBLEM_CHARS) ? 'text-red-500' : 'opacity-40'}`}> {problem.length} / {getLimit(problem, MAX_PROBLEM_CHARS)} CHARACTERS</div>
                 <div className="mt-4 space-y-4">
                   <button onClick={() => runAnalysis(false)} disabled={!problem.trim()} className="w-full py-4 bg-trivium-orange text-trivium-dark font-black text-xl hover:opacity-90 disabled:opacity-50">
                     EXECUTE ANALYSIS
@@ -909,8 +916,8 @@ export default function App() {
                 <h2 className="text-[10px] font-bold mb-4 flex items-center gap-2 border-b border-trivium-orange/30 pb-1 uppercase tracking-widest">
                   <Terminal className="w-4 h-4" /> FOLLOW-UP QUERY
                 </h2>
-                <textarea value={followUp} onChange={(e) => setFollowUp(e.target.value)} maxLength={MAX_FOLLOWUP_CHARS} placeholder="ENTER FOLLOW-UP QUESTION..." className="w-full h-24 bg-trivium-dark/50 border border-trivium-orange/30 p-3 text-sm focus:outline-none focus:border-trivium-orange resize-none font-mono" />
-                <div className={`text-[9px] text-right mt-1 font-mono ${followUp.length >= MAX_FOLLOWUP_CHARS ? 'text-red-500' : 'opacity-40'}`}> {followUp.length} / {MAX_FOLLOWUP_CHARS} CHARACTERS </div>
+                <textarea value={followUp} onChange={(e) => setFollowUp(e.target.value)} maxLength={getLimit(followUp, MAX_FOLLOWUP_CHARS)} placeholder="ENTER FOLLOW-UP QUESTION..." className="w-full h-24 bg-trivium-dark/50 border border-trivium-orange/30 p-3 text-sm focus:outline-none focus:border-trivium-orange resize-none font-mono" />
+                <div className={`text-[9px] text-right mt-1 font-mono ${followUp.length >= getLimit(followUp, MAX_FOLLOWUP_CHARS) ? 'text-red-500' : 'opacity-40'}`}> {followUp.length} / {getLimit(followUp, MAX_FOLLOWUP_CHARS)} CHARACTERS </div>
                 <div className="grid grid-cols-2 gap-3 mt-3">
                   <button onClick={reset} className="py-3 border border-trivium-orange/30 text-xs font-bold hover:bg-trivium-orange/10 transition-all uppercase">NEW ANALYSIS</button>
                   <button onClick={() => runAnalysis(true)} disabled={state === 'THINKING' || !followUp.trim()} className="py-3 bg-trivium-orange text-trivium-dark font-black text-sm flex items-center justify-center gap-2 uppercase transition-all hover:opacity-90 disabled:opacity-50"><Send className="w-4 h-4" /> SEND QUERY</button>

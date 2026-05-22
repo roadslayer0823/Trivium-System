@@ -704,6 +704,7 @@ public final class MagiNativeLLMPlugin: CAPPlugin, CAPBridgedPlugin, URLSessionD
                         let options = LlmInference.Options(modelPath: modelPath)
                         options.maxTokens = self.modelMaxTokens
                         options.maxTopk = 40
+                        
                         self.inference = try LlmInference(options: options)
                         print("⚡️ [MAGI NATIVE] LlmInference recreated for next generation. RAM: \(self.getMemoryUsage())")
                     } catch {
@@ -824,7 +825,7 @@ public final class MagiNativeLLMPlugin: CAPPlugin, CAPBridgedPlugin, URLSessionD
         // A17 Pro (iPhone 15 Pro) and newer are Apple 9 family
         // These chips have the required performance and memory for Gemma 4
         let isA17OrNewer = device.supportsFamily(.apple9)
-        
+
         call.resolve([
             "isSupported": isA17OrNewer,
             "deviceModel": model,
